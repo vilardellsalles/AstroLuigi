@@ -1,16 +1,15 @@
-import sys
 import os.path
 
 import luigi
-
 from astropy.io import fits
-from astropy.io import votable
-from astropy.table import Table
+
+import database as db
+import ccdred as ccd
 
 
 class Reduction(luigi.WrapperTask):
     obsdata = luigi.parameter.Parameter(default=".")
-    extension = luigi.parameter.Parameter(default="imr.fits")
+    suffix = luigi.parameter.Parameter(default="imr.fits")
     database = luigi.parameter.Parameter(default="database.xml")
 
     def requires(self):
@@ -19,63 +18,57 @@ class Reduction(luigi.WrapperTask):
             for image in files:
                 image_list += [os.path.join(path, image)]
 
-        yield Store(image_list=image_list, database=self.database)
+        yield db.CreateDB(image_list=image_list, database=self.database)
 
-#        for image in image_list:
-#            if image.endswith(self.extension):
-#                task_list += [ImageReduction(image=image,
-#                                             database=self.database)]
-#
-#        return task_list
+        for image in image_list:
+            if image.endswith(self.suffix):
+                new_image = os.path.basename(image)
+                yield ImageReduction(image=image, database=self.database,
+                                     out_image=new_image)
 
 
-class ImageReduction(luigi.WrapperTask):
+class ImageReduction(luigi.Task):
     image = luigi.parameter.Parameter()
+    extension = luigi.parameter.IntParameter(default=0)
     database = luigi.parameter.Parameter(default="database.xml")
-
-    def requires(self):
-        bias = yield BiasCombine(database=self.database,
-                                keywords={"OBSTYPE": "Bias"},
-                                out_list="master_bias.fits")
-
-
-class Store(luigi.Task):
-    image_list = luigi.parameter.ListParameter()
-    database = luigi.parameter.Parameter()
+    out_image = luigi.parameter.Parameter()
 
     def output(self):
-        return luigi.file.LocalTarget(self.database)
+        return luigi.file.LocalTarget(self.out_image)
 
     def run(self):
-        hdu_table = None
-        for image in self.image_list:
-            try:
-                hdulist = fits.open(image)
+        valid_header = [{"keyword": "OBSTYPE", "constant": "Bias"}]
+        valid_header += [{"keyword": "INSTRUME"}]
+        valid_header += [{"keyword": "FILTER", "constant": "C"}]
+        valid_header += [{"keyword": "JD", "type": "int"}]
+        valid_header += [{"keyword": "NAXIS1", "type": "int"}]
+        valid_header += [{"keyword": "NAXIS2", "type": "int"}]
+        valid_header += [{"keyword": "EXPTIME", "constant": 0,
+                          "type": "int"}]
+        valid_header += [{"keyword": "CAMTEMP", "constant": 3,
+                          "type": "float", "operation": "diff"}]
 
-                if len(hdulist) > 1:
-                    errmsg = "Store cannot work with multiple extensions"
-                    raise NotImplementedError(errmsg)
- 
-                for num, hdu in enumerate(hdulist):
-                    values = [image, num]
-                    values += [value for name, value in hdu.header.items()
-                               if name != "COMMENT" and name != "HISTORY"] 
- 
-                    if hdu_table is None:
-                        columns = ["FILENAME", "EXTENSION"]
-                        columns += [name for name in hdu.header.keys()
-                                    if name != "COMMENT" and name != "COMMENT"]
-                        coltypes = [object] *len(columns)
-                        hdu_table = Table(names=columns, dtype=coltypes)
- 
-                    hdu_table.add_row(values)
+        bias_list = os.path.splitext(os.path.basename(self.image))[0] + ".blst"
 
-            except OSError:
-                # Not a FITS image
-                pass
+        yield db.ImCalib(ref_image=self.image, database=self.database,
+                         keywords=valid_header, image_list=bias_list)
 
-        out_table = votable.from_table(hdu_table)
-        out_table.to_xml(self.output().path)
+        bias_images = []
+        try:
+            with open(bias_list, "r") as blst:
+                for image in blst:
+                    bias_images += [image.strip()]
+        except FileNotFoundError:
+            pass
+
+        if len(bias_images) < 5:
+            print("Returning with:", len(bias_images))
+            return
+
+        master_bias = yield ccd.ZeroCombine(bias_list=bias_images)
+
+        with self.output().open("w"):
+            pass
 
 
 if __name__ == "__main__":
