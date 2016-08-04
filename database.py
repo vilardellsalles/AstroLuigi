@@ -1,12 +1,12 @@
 import os.path
 
 import luigi
-
 import numpy as np
 from astropy.io import fits
 from astropy.io import votable
 from astropy.table import Table
 
+from targets import ASCIITarget
 
 class CreateDB(luigi.Task):
     image_list = luigi.parameter.ListParameter()
@@ -60,10 +60,11 @@ class ImCalib(luigi.Task):
     ref_image = luigi.parameter.Parameter()
     database = luigi.parameter.Parameter()
     keywords = luigi.parameter.ListParameter()
+    min_number = luigi.parameter.IntParameter(default=0)
     image_list = luigi.parameter.Parameter()
 
     def output(self):
-        return luigi.file.LocalTarget(self.image_list)
+        return ASCIITarget(self.image_list)
 
     def run(self):
         valid_images = None
@@ -94,6 +95,9 @@ class ImCalib(luigi.Task):
                 valid_images = set(new_images)
             else:
                 valid_images = valid_images & set(new_images)
+
+        if len(valid_images) < self.min_number:
+            raise ValueError("Number of bias images: {}", len(valid_images))
 
         with self.output().open("w") as outf:
             for image in valid_images:

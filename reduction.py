@@ -1,7 +1,6 @@
 import os.path
 
 import luigi
-from astropy.io import fits
 
 import database as db
 import ccdred as ccd
@@ -50,22 +49,30 @@ class ImageReduction(luigi.Task):
 
         bias_list = os.path.splitext(os.path.basename(self.image))[0] + ".blst"
 
-        yield db.ImCalib(ref_image=self.image, database=self.database,
-                         keywords=valid_header, image_list=bias_list)
+        bias = yield db.ImCalib(ref_image=self.image, database=self.database,
+                                keywords=valid_header, min_number=5,
+                                image_list=bias_list)
 
-        bias_images = []
-        try:
-            with open(bias_list, "r") as blst:
-                for image in blst:
-                    bias_images += [image.strip()]
-        except FileNotFoundError:
-            pass
+        master_bias = yield ccd.ZeroCombine(bias_list=bias.content)
 
-        if len(bias_images) < 5:
-            print("Returning with:", len(bias_images))
-            return
+        valid_header = [{"keyword": "OBSTYPE", "constant": "Dark"}]
+        valid_header += [{"keyword": "INSTRUME"}]
+        valid_header += [{"keyword": "FILTER", "constant": "C"}]
+        valid_header += [{"keyword": "JD", "type": "int"}]
+        valid_header += [{"keyword": "NAXIS1", "type": "int"}]
+        valid_header += [{"keyword": "NAXIS2", "type": "int"}]
+        valid_header += [{"keyword": "EXPTIME", "operation": "ge"}]
+        valid_header += [{"keyword": "CAMTEMP", "constant": 3,
+                          "type": "float", "operation": "diff"}]
 
-        master_bias = yield ccd.ZeroCombine(bias_list=bias_images)
+        dark_list = os.path.splitext(os.path.basename(self.image))[0] + ".dlst"
+
+        dark = yield db.ImCalib(ref_image=self.image, database=self.database,
+                                keywords=valid_header, min_number=5,
+                                image_list=dark_list)
+
+        master_dark = yield ccd.DarkCombine(dark_list=dark.content,
+                                            bias=master_bias.path)
 
         with self.output().open("w"):
             pass
