@@ -1,4 +1,5 @@
 import json
+import os.path
 
 import luigi
 
@@ -17,6 +18,8 @@ class ASCIITarget(luigi.file.LocalTarget):
 class HashTarget(luigi.file.LocalTarget):
     def __init__(self, path=None, format=None, is_tmp=False, add_hash=False):
         if add_hash and path and not is_tmp:
-            path = "{}{:x}.fits".format(path, abs(hash(json.dumps(add_hash))))
+            base, ext = os.path.splitext(path)
+            hash_value = abs(hash(json.dumps(add_hash)))
+            path = "{}_{:x}{}".format(base, hash_value, ext)
 
         super(HashTarget, self).__init__(path, format, is_tmp)

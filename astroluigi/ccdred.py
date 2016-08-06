@@ -1,7 +1,9 @@
+import os.path
+
 import luigi
 import ccdproc
 
-from targets import HashTarget
+from .targets import HashTarget
 
 
 class ZeroCombine(luigi.Task):
@@ -10,10 +12,11 @@ class ZeroCombine(luigi.Task):
     output_file = luigi.parameter.Parameter(default="")
 
     def output(self):
-        if self.output_file:
-            return HashTarget(self.output_file)
+        if os.path.isdir(self.output_file) or not self.output_file:
+            out_path = os.path.join(self.output_file, "bias.fits")
+            return HashTarget(out_path, add_hash=self.bias_list)
         else:
-            return HashTarget("bias_", add_hash=self.bias_list)
+            return HashTarget(self.output_file)
 
     def run(self):
         ccdproc.combine(list(self.bias_list), method=self.method,
@@ -28,10 +31,12 @@ class DarkCombine(luigi.Task):
     output_file = luigi.parameter.Parameter(default="")
 
     def output(self):
-        if self.output_file:
-            return HashTarget(self.output_file)
+        if os.path.isdir(self.output_file) or not self.output_file:
+            out_path = os.path.join(self.output_file, "dark.fits")
+            return HashTarget(out_path, add_hash=self.dark_list)
         else:
-            return HashTarget("dark_", add_hash=self.dark_list)
+            return HashTarget(self.output_file)
+
 
     def run(self):
         data = [ccdproc.CCDData.read(image, unit="adu")
