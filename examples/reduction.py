@@ -2,8 +2,8 @@ import os.path
 
 import luigi
 
-import database as db
-import ccdred as ccd
+from astroluigi import votable_database as db
+from astroluigi import ccdred as ccd
 
 
 class Reduction(luigi.WrapperTask):
@@ -72,6 +72,24 @@ class ImageReduction(luigi.Task):
                                 image_list=dark_list)
 
         master_dark = yield ccd.DarkCombine(dark_list=dark.content,
+                                            bias=master_bias.path)
+
+        valid_header = [{"keyword": "OBSTYPE", "constant": "Flat"}]
+        valid_header += [{"keyword": "INSTRUME"}]
+        valid_header += [{"keyword": "FILTER"}]
+        valid_header += [{"keyword": "NAXIS1", "type": "int"}]
+        valid_header += [{"keyword": "NAXIS2", "type": "int"}]
+        valid_header += [{"keyword": "CAMTEMP", "constant": 3,
+                          "type": "float", "operation": "diff"}]
+
+        flat_list = os.path.splitext(os.path.basename(self.image))[0] + ".flst"
+
+        flat = yield db.ImCalib(ref_image=self.image, database=self.database,
+                                keywords=valid_header, min_number=3,
+                                image_list=flat_list)
+
+        master_flat = yield ccd.FlatCombine(flat_list=flat.content,
+                                            dark=master_dark.path,
                                             bias=master_bias.path)
 
         with self.output().open("w"):
