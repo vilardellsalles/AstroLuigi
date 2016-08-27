@@ -81,6 +81,8 @@ class ImageReduction(luigi.Task):
         valid_header += [{"keyword": "NAXIS2", "type": "int"}]
         valid_header += [{"keyword": "CAMTEMP", "constant": 3,
                           "type": "float", "operation": "diff"}]
+        valid_header += [{"keyword": "FOCUSPOS", "constant": 150,
+                          "type": "float", "operation": "diff"}]
 
         flat_list = os.path.splitext(os.path.basename(self.image))[0] + ".flst"
 

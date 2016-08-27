@@ -85,8 +85,13 @@ class ImCalib(luigi.Task):
                 new_images = db["FILENAME"][np.where(comparison(value))]
 
             except AttributeError:
-                comparison = np.where(abs(column - ref_value) < value)
-                new_images = db["FILENAME"][comparison]
+                if operation == "diff":
+                    value = np.array(key["constant"], dtype=column.dtype)
+
+                    comparison = np.where(abs(column - ref_value) < value)
+                    new_images = db["FILENAME"][comparison]
+                else:
+                    raise
 
             except KeyError as err:
                 raise err("'keyword' tag is required in keywords")

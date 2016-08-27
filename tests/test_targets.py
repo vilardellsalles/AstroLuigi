@@ -32,6 +32,6 @@ def test_hash_target_init(add_hash):
 
     test_hash = basename
     if add_hash:
-        test_hash += "_{:x}".format(abs(hash("\"{}\"".format(add_hash))))
+        test_hash = "{}_{}".format(basename, add_hash)
 
     assert test_name == "{}.txt".format(test_hash)

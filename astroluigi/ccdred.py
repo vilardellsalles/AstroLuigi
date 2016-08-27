@@ -7,29 +7,40 @@ import astropy.units as u
 from .targets import HashTarget
 
 
-class ZeroCombine(luigi.Task):
+class CCDRed(luigi.Task):
     """
-    Combine a list of bias frames using the ccdproc combine method
+    Base class for ccdred tasks
     """
 
-    bias_list = luigi.parameter.ListParameter()
+    _base_output = "ccdred.fits"
+
     method = luigi.parameter.Parameter(default="median")
     output_file = luigi.parameter.Parameter(default="")
 
     def output(self):
         if os.path.isdir(self.output_file) or not self.output_file:
-            out_path = os.path.join(self.output_file, "bias.fits")
+            out_path = os.path.join(self.output_file, self._base_output)
             hash_value = self.task_id.split("_")[-1]
             return HashTarget(out_path, add_hash=hash_value)
         else:
             return HashTarget(self.output_file)
+
+
+class ZeroCombine(CCDRed):
+    """
+    Combine a list of bias frames using the ccdproc combine method
+    """
+
+    _base_output = "bias.fits"
+
+    bias_list = luigi.parameter.ListParameter()
 
     def run(self):
         ccdproc.combine(list(self.bias_list), method=self.method,
                         output_file=self.output().path, unit="adu")
 
 
-class DarkCombine(luigi.Task):
+class DarkCombine(CCDRed):
     """
     Combine a list of dark frames using the ccdproc combine method.
     A master bias is subtracted to each dark frame and scaled
@@ -37,19 +48,11 @@ class DarkCombine(luigi.Task):
     before combination
     """
 
+    _base_output = "dark.fits"
+
     dark_list = luigi.parameter.ListParameter()
-    method = luigi.parameter.Parameter(default="median")
     scale = luigi.parameter.Parameter(default="EXPTIME")
     bias = luigi.parameter.Parameter(default="")
-    output_file = luigi.parameter.Parameter(default="")
-
-    def output(self):
-        if os.path.isdir(self.output_file) or not self.output_file:
-            out_path = os.path.join(self.output_file, "dark.fits")
-            hash_value = self.task_id.split("_")[-1]
-            return HashTarget(out_path, add_hash=hash_value)
-        else:
-            return HashTarget(self.output_file)
 
     def run(self):
         data = [ccdproc.CCDData.read(image, unit="adu")
@@ -66,27 +69,19 @@ class DarkCombine(luigi.Task):
         ccdproc.fits_ccddata_writer(dark, self.output().path)
 
 
-class FlatCombine(luigi.Task):
+class FlatCombine(CCDRed):
     """
     Combine a list of flat frames using the ccdproc combine method.
     A master bias and a master dark is subtracted to each flat frame
     and scaled by their average number of counts before combination
     """
 
+    _base_output = "flat.fits"
+
     flat_list = luigi.parameter.ListParameter()
-    method = luigi.parameter.Parameter(default="median")
     scale = luigi.parameter.Parameter(default="")
     bias = luigi.parameter.Parameter(default="")
     dark = luigi.parameter.Parameter(default="")
-    output_file = luigi.parameter.Parameter(default="")
-
-    def output(self):
-        if os.path.isdir(self.output_file) or not self.output_file:
-            out_path = os.path.join(self.output_file, "flat.fits")
-            hash_value = self.task_id.split("_")[-1]
-            return HashTarget(out_path, add_hash=hash_value)
-        else:
-            return HashTarget(self.output_file)
 
     def run(self):
         data = [ccdproc.CCDData.read(image, unit="adu")
