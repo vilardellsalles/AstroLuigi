@@ -7,30 +7,35 @@ import pytest
 from astroluigi import ccdred
 
 
-class TestCCDRed:
+class TestCombine:
     """
-    CCDRed TestClass
+    Combine TestClass
     """
 
-    output_pars = [(""), ("ccdred_output.fits")]
+    output_pars = [(""), ("combine.fits"), ("combine_output.fits")]
 
     @pytest.mark.parametrize("out_name", output_pars)
-    def test_ccdred_output(self, out_name):
+    def test_combine_output(self, tmpdir, out_name):
         """
-        Ensure that CCDRed.output works as expected
+        Ensure that Combine.output works as expected
         """
     
-        test_ccdred = ccdred.CCDRed(output_file=out_name)
+        full_path = str(tmpdir.join(out_name))
+
+        test_combine = ccdred.Combine(output_file=full_path)
     
-        base, ext = os.path.splitext(test_ccdred.output().path)
+        base, ext = os.path.splitext(test_combine.output().path)
     
-        if out_name:
+        if out_name == "combine.fits":
+            new_base = "_".join(base.split("_")[:-1])
+            test_path = full_path
+        elif out_name:
             new_base = base
-            test_path = out_name
+            test_path = full_path
         else:
-            new_base = "".join(base.split("_")[:-1])
-            test_path = "ccdred.fits"
-    
+            new_base = "_".join(base.split("_")[:-1])
+            test_path = os.path.join(full_path, "combine.fits")
+
         assert test_path == "{}{}".format(new_base, ext)
 
 
@@ -39,7 +44,7 @@ class TestZeroCombine:
     ZeroCombine TestClass
     """
 
-    output_pars = [(""), ("zero_combine_output.fits")]
+    output_pars = [(""), ("bias.fits"), ("zero_combine_output.fits")]
 
     @pytest.mark.parametrize("out_name", output_pars)
     def test_zero_combine_run_file(self, create_FITS, tmpdir, out_name):
@@ -79,7 +84,7 @@ class TestDarkCombine:
     DarkCombine TestClass
     """
 
-    output_pars = [(""), ("dark_combine_output.fits")]
+    output_pars = [(""), ("dark.fits"), ("dark_combine_output.fits")]
 
     @pytest.mark.parametrize("out_name", output_pars)
     def test_dark_combine_run_file(self, create_FITS, tmpdir, out_name):
@@ -124,7 +129,7 @@ class TestFlatCombine:
     FlatCombine TestClass
     """
 
-    output_pars = [(""), ("flat_combine_output.fits")]
+    output_pars = [(""), ("flat.fits"), ("flat_combine_output.fits")]
 
     @pytest.mark.parametrize("out_name", output_pars)
     def test_flat_combine_run_file(self, create_FITS, tmpdir, out_name):

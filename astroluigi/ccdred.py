@@ -4,29 +4,32 @@ import luigi
 import ccdproc
 import astropy.units as u
 
-from .targets import HashTarget
 
-
-class CCDRed(luigi.Task):
+class Combine(luigi.Task):
     """
-    Base class for ccdred tasks
+    Base class for tasks using ccdproc.combine method
     """
 
-    _base_output = "ccdred.fits"
+    _base_output = "combine.fits"
 
     method = luigi.parameter.Parameter(default="median")
-    output_file = luigi.parameter.Parameter(default="")
+    output_file = luigi.parameter.Parameter(default=_base_output)
 
     def output(self):
-        if os.path.isdir(self.output_file) or not self.output_file:
+        out_path = self.output_file
+
+        if os.path.isdir(out_path):
             out_path = os.path.join(self.output_file, self._base_output)
+
+        if os.path.basename(out_path) == self._base_output:
             hash_value = self.task_id.split("_")[-1]
-            return HashTarget(out_path, add_hash=hash_value)
-        else:
-            return HashTarget(self.output_file)
+            base, ext = os.path.splitext(out_path)
+            out_path = "{}_{}{}".format(base, hash_value, ext)
+
+        return luigi.file.LocalTarget(out_path)
 
 
-class ZeroCombine(CCDRed):
+class ZeroCombine(Combine):
     """
     Combine a list of bias frames using the ccdproc combine method
     """
@@ -40,7 +43,7 @@ class ZeroCombine(CCDRed):
                         output_file=self.output().path, unit="adu")
 
 
-class DarkCombine(CCDRed):
+class DarkCombine(Combine):
     """
     Combine a list of dark frames using the ccdproc combine method.
     A master bias is subtracted to each dark frame and scaled
@@ -69,7 +72,7 @@ class DarkCombine(CCDRed):
         ccdproc.fits_ccddata_writer(dark, self.output().path)
 
 
-class FlatCombine(CCDRed):
+class FlatCombine(Combine):
     """
     Combine a list of flat frames using the ccdproc combine method.
     A master bias and a master dark is subtracted to each flat frame
