@@ -1,4 +1,6 @@
+import shutil
 import os.path
+from tempfile import gettempdir
 
 import luigi
 
@@ -24,6 +26,13 @@ class Reduction(luigi.WrapperTask):
                 new_image = os.path.basename(image)
                 yield ImageReduction(image=image, database=self.database,
                                      out_image=new_image)
+
+        # Clean temporary files
+
+        try:
+            shutil.rmtree(os.path.join(gettempdir(), "astroluigi"))
+        except FileNotFoundError:
+            pass
 
 
 class ImageReduction(luigi.Task):
@@ -55,6 +64,10 @@ class ImageReduction(luigi.Task):
 
         master_bias = yield ccd.ZeroCombine(bias_list=bias.content)
 
+        master_copy = os.path.basename(master_bias.path)
+        if not os.path.isfile(master_copy):
+            master_bias.copy(master_copy)
+
         valid_header = [{"keyword": "OBSTYPE", "constant": "Dark"}]
         valid_header += [{"keyword": "INSTRUME"}]
         valid_header += [{"keyword": "FILTER", "constant": "C"}]
@@ -73,6 +86,10 @@ class ImageReduction(luigi.Task):
 
         master_dark = yield ccd.DarkCombine(dark_list=dark.content,
                                             bias=master_bias.path)
+
+        master_copy = os.path.basename(master_dark.path)
+        if not os.path.isfile(master_copy):
+            master_dark.copy(master_copy)
 
         valid_header = [{"keyword": "OBSTYPE", "constant": "Flat"}]
         valid_header += [{"keyword": "INSTRUME"}]
@@ -94,8 +111,13 @@ class ImageReduction(luigi.Task):
                                             dark=master_dark.path,
                                             bias=master_bias.path)
 
-        with self.output().open("w"):
-            pass
+        master_copy = os.path.basename(master_flat.path)
+        if not os.path.isfile(master_copy):
+            master_flat.copy(master_copy)
+
+        bias_corrected = yield ccd.BiasSubtract(self.image,
+                                                bias=master_bias.path,
+                                                output_file=self.output().path)
 
 
 if __name__ == "__main__":

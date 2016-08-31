@@ -1,7 +1,8 @@
-import json
 import os.path
+import warnings
 
 import luigi
+
 
 class ASCIITarget(luigi.file.LocalTarget):
     @property
@@ -17,8 +18,11 @@ class ASCIITarget(luigi.file.LocalTarget):
 
 class HashTarget(luigi.file.LocalTarget):
     def __init__(self, path=None, format=None, is_tmp=False, add_hash=False):
+        msg = "HashTarget superseded by CCDRed.output method."
+        warnings.warn(msg, DeprecationWarning)
+
         if add_hash and path and not is_tmp:
             base, ext = os.path.splitext(path)
             path = "{}_{}{}".format(base, add_hash, ext)
 
-        super(HashTarget, self).__init__(path, format, is_tmp)
+        super().__init__(path, format, is_tmp)
