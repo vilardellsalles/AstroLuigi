@@ -1,10 +1,8 @@
 import os.path
-from tempfile import gettempdir
 
 import pytest
 
 import luigi
-
 from numpy import zeros, array_equal
 import ccdproc
 
@@ -16,29 +14,16 @@ class TestCCDRed:
     CCDRed TestClass
     """
 
-    output_pars = [(False), (""), ("ccdred_output.fits")]
-
-    @pytest.mark.parametrize("use_tmpdir", output_pars)
-    def test_ccdred_output(self, tmpdir, use_tmpdir):
+    def test_ccdred_output(self, tmpdir):
         """
         Ensure that CCDRed.output works as expected
         """
 
-        if use_tmpdir:
-            full_path = str(tmpdir.join(use_tmpdir))
-        else:
-            full_path = ""
+        test_ccdred = ccdred.CCDRed(output_file=str(tmpdir))
+        test_taskid = test_ccdred.task_id.split("_")
+        test_name = test_taskid[0] + "_" + test_taskid[-1] + ".fit"
 
-        test_ccdred = ccdred.CCDRed(output_file=full_path)
-    
-        test_name = full_path
-        test_id = test_ccdred.task_id + ".fit"
-        if os.path.isdir(full_path):
-            test_name = os.path.join(full_path, test_id)
-        elif not full_path:
-            test_name = os.path.join(gettempdir(), "astroluigi", test_id)
-
-        assert test_ccdred.output().path == test_name
+        assert test_ccdred.output().path == str(tmpdir.join(test_name))
 
 
 class TestBiasSubtract:

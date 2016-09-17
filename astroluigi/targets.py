@@ -1,5 +1,5 @@
 import os.path
-import warnings
+from tempfile import gettempdir
 
 import luigi
 
@@ -16,13 +16,24 @@ class ASCIITarget(luigi.file.LocalTarget):
         return file_content
 
 
-class HashTarget(luigi.file.LocalTarget):
-    def __init__(self, path=None, format=None, is_tmp=False, add_hash=False):
-        msg = "HashTarget superseded by CCDRed.output method."
-        warnings.warn(msg, DeprecationWarning)
+class TempLocalTarget(luigi.file.LocalTarget):
+    def __init__(self, path=None, format=None, add_hash=""):
 
-        if add_hash and path and not is_tmp:
-            base, ext = os.path.splitext(path)
-            path = "{}_{}{}".format(base, add_hash, ext)
+        if path and not os.path.isdir(path):
+            add_hash = ""
+        elif not path:
+            parent_dir = os.path.basename(os.path.dirname(__file__))
+            path = os.path.join(gettempdir(), parent_dir)
 
-        super().__init__(path, format, is_tmp)
+        if add_hash:
+            path = os.path.join(path, add_hash)
+
+        # Ensure that destination directory exists
+
+        tmp_path = os.path.dirname(path)
+        if tmp_path:
+            os.makedirs(tmp_path, exist_ok=True)
+
+        # Due to Luigi issue #1519, we cannot use is_tmp=True
+
+        super().__init__(path, format)

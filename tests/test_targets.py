@@ -1,3 +1,6 @@
+import os.path
+from tempfile import gettempdir
+
 import pytest
 
 from astroluigi import targets
@@ -19,19 +22,25 @@ def test_ascii_target_content(tmpdir):
     assert test_content == test_target.content
 
 
-target_init_pars = [(False), ("test")]
-@pytest.mark.parametrize("add_hash", target_init_pars)
-def test_hash_target_init(add_hash):
+target_init_pars = [(False), (""), ("test.txt")]
+@pytest.mark.parametrize("use_tmpdir", target_init_pars)
+def test_temp_local_target_init(tmpdir, use_tmpdir):
     """
-    Check whether HashTarget produces the proper file names
+    Check whether TempLocalTarget produces the proper file names
     """
-    basename = "hash_target_init"
 
-    filename = "{}.txt".format(basename)
-    test_name = targets.HashTarget(filename, add_hash=add_hash).path
+    if use_tmpdir:
+        full_path = str(tmpdir.join(use_tmpdir))
+    else:
+        full_path = ""
+    
+    hash_value = "test.txt"
+    test_target = targets.TempLocalTarget(full_path, add_hash=hash_value).path
 
-    test_hash = basename
-    if add_hash:
-        test_hash = "{}_{}".format(basename, add_hash)
+    test_name = full_path
+    if os.path.isdir(full_path):
+        test_name = os.path.join(full_path, hash_value)
+    elif not full_path:
+        test_name = os.path.join(gettempdir(), "astroluigi", hash_value)
 
-    assert test_name == "{}.txt".format(test_hash)
+    assert test_name == test_target

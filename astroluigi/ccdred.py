@@ -1,9 +1,8 @@
-import os.path
-from tempfile import gettempdir
-
 import luigi
 import ccdproc
 import astropy.units as u
+
+from .targets import TempLocalTarget
 
 
 class CCDRed(luigi.Task):
@@ -14,30 +13,12 @@ class CCDRed(luigi.Task):
     output_file = luigi.parameter.Parameter(default="", positional=False)
 
     def output(self):
+        # The .fit extension is required to allow ccdproc.combine
+        # recognize the output file format
 
-        if self.output_file and not os.path.isdir(self.output_file):
-            tmp_path = os.path.dirname(self.output_file)
-            out_path = self.output_file
-
-        else:
-            tmp_path = self.output_file
-            if not self.output_file:
-                parent_dir = os.path.basename(os.path.dirname(__file__))
-                tmp_path = os.path.join(gettempdir(), parent_dir)
-
-            # The .fit extension is required to allow ccdproc.combine
-            # recognize the output file format
-
-            out_path = os.path.join(tmp_path, self.task_id + ".fit")
-
-        # Ensure that destination directory exists
-
-        if tmp_path:
-            os.makedirs(tmp_path, exist_ok=True)
-
-        # Due to Luigi issue #1519, we cannot use is_tmp=True
-
-        return luigi.file.LocalTarget(out_path)
+        taskid = self.task_id.split("_")
+        hash_value = taskid[0] + "_" + taskid[-1] + ".fit"
+        return TempLocalTarget(path=self.output_file, add_hash=hash_value)
 
 
 class BiasSubtract(CCDRed):
@@ -59,7 +40,7 @@ class BiasSubtract(CCDRed):
 
 class ZeroCombine(CCDRed):
     """
-    Combine a list of bias frames using the ccdproc combine method
+    Combine a list of bias frames using the ccdproc.combine method
     """
 
     bias_list = luigi.parameter.ListParameter()
@@ -93,9 +74,9 @@ class DarkCombine(CCDRed):
         else:
             clean_images = list(self.dark_list)
 
-        scaling = [1.0 / ccdproc.CCDData.read(image,
-                                             unit="adu").header[self.scale]
-                   for image in self.dark_list]
+        read = ccdproc.CCDData.read
+        scaling = [1.0 / read(image, unit="adu").header[self.scale]
+                   for image in clean_images]
 
         dark = ccdproc.combine(clean_images, method=self.method, scale=scaling)
         dark.header[self.scale] = 1.0
