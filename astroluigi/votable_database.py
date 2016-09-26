@@ -1,58 +1,50 @@
 import os.path
+import fnmatch
 
 import luigi
 import numpy as np
-from astropy.io import fits
+from astropy import table
 from astropy.io import votable
-from astropy.table import Table
+from ccdproc import ImageFileCollection
 
 from .targets import ASCIITarget
 
+
 class CreateDB(luigi.Task):
-    image_list = luigi.parameter.ListParameter()
+    """
+    Create a VO table database from a list of FITS files in a
+    specific location. The search for fits images can be made recusive
+    with recursive parameter set to True (the default)
+    """
+
+    location = luigi.parameter.ListParameter()
+    recursive = luigi.parameter.BoolParameter(default=True)
     database = luigi.parameter.Parameter()
 
     def output(self):
         return luigi.file.LocalTarget(self.database)
 
     def run(self):
-        hdu_table = None
-        for image in self.image_list:
-            try:
-                hdulist = fits.open(image)
+        # Ideally, this method could be implemented using 
+        # ImageFileCollection only. Unfortunately, ImageFileCollection
+        # is not recursive and is not able to work with multiple
+        # FITS extensions (multiple extensions is not implemented)
 
-                if len(hdulist) > 1:
-                    errmsg = "Storing image with multiple extensions"
-                    raise NotImplementedError(errmsg)
- 
-                for num, hdu in enumerate(hdulist):
-                    values = [image, num]
-                    values += [value for name, value in hdu.header.items()
-                               if name != "COMMENT" and name != "HISTORY"] 
- 
-                    if hdu_table is None:
-                        columns = ["FILENAME", "EXTENSION"]
-                        columns += [name for name in hdu.header
-                                    if name != "COMMENT" and name != "COMMENT"]
+        imtable = None
+        for path, subdirs, files in os.walk(self.location):
+            dirtable = ImageFileCollection(path).summary
+            path_list = [os.path.join(path, image) 
+                         for image in dirtable["file"]]
+            dirtable.replace_column("file", path_list)
+            if imtable:
+                imtable = table.join(imtable, dirtable, join="outer")
+            else:
+                imtable = dirtable
 
-                        coltypes = []
-                        for elem in values:
-                            if type(elem) == str:
-                                elem_len = len(elem)
-                                minsize = elem_len if elem_len > 64 else 64
-                                coltypes += [np.dtype(str) * minsize]
-                            else:
-                                coltypes += [np.array(elem).dtype]
+            if not self.recursive:
+                break
 
-                        hdu_table = Table(names=columns, dtype=coltypes)
- 
-                    hdu_table.add_row(values)
-
-            except OSError:
-                # Not a FITS image
-                pass
-
-        out_table = votable.from_table(hdu_table)
+        out_table = votable.from_table(imtable)
         out_table.to_xml(self.output().path)
 
 
@@ -74,7 +66,7 @@ class ImCalib(luigi.Task):
                 db_column = np.array(db[key["keyword"]])
                 column = db_column.astype(key.get("type", db_column.dtype))
 
-                image_pos = np.where(db["FILENAME"] == self.ref_image)
+                image_pos = np.where(db["file"] == self.ref_image)
                 ref_value = column[image_pos]
 
                 value = np.array(key.get("constant", ref_value),
@@ -82,19 +74,16 @@ class ImCalib(luigi.Task):
 
                 operation = key.get("operation", "eq")
                 comparison = getattr(column, "__{}__".format(operation))
-                new_images = db["FILENAME"][np.where(comparison(value))]
+                new_images = db["file"][np.where(comparison(value))]
 
             except AttributeError:
                 if operation == "diff":
                     value = np.array(key["constant"], dtype=column.dtype)
 
                     comparison = np.where(abs(column - ref_value) < value)
-                    new_images = db["FILENAME"][comparison]
+                    new_images = db["file"][comparison]
                 else:
                     raise
-
-            except KeyError as err:
-                raise err("'keyword' tag is required in keywords")
 
             if valid_images is None:
                 valid_images = set(new_images)

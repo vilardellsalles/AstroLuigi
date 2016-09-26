@@ -40,7 +40,7 @@ class TestCreateDB:
         number of columns
         """
 
-        test_types = ["unicodeChar", "long", "bit", "long", "long", "long",
+        test_types = ["unicodeChar", "bit", "long", "long", "long",
                       "long", "double", "unicodeChar"]
 
         test_table = votable.parse_single_table(create_database)
@@ -54,7 +54,7 @@ class TestCreateDB:
         number of columns
         """
 
-        test_values = [0, True, 64, 2, 2, 2, 10.0, "adu"]
+        test_values = [True, 64, 2, 2, 2, 10.0, "adu"]
 
         test_table = votable.parse_single_table(create_database)
         table_values = test_table.array.data

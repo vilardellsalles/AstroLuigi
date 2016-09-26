@@ -1,5 +1,6 @@
 import pytest
 
+import luigi
 from numpy import array
 import ccdproc
 
@@ -35,10 +36,10 @@ def create_database(tmpdir, create_FITS):
 
     full_path = str(tmpdir.join("database_output.xml"))
 
-    test_create_db = vodb.CreateDB(image_list=create_FITS,
+    test_create_db = vodb.CreateDB(location=str(tmpdir),
                                    database=full_path)
 
-    test_create_db.run()
+    luigi.build([test_create_db], local_scheduler=True)
 
     return test_create_db.output().path
 
@@ -52,10 +53,10 @@ def create_list(tmpdir, create_FITS, create_database):
 
     full_path = str(tmpdir.join("imcalib.lst"))
 
-    test_keywords = [{"keyword": "NAXIS"}]
-    test_keywords += [{"keyword": "NAXIS1", "type": "int"}]
-    test_keywords += [{"keyword": "NAXIS2", "constant": 2}]
-    test_keywords += [{"keyword": "EXPTIME", "constant": 1.0,
+    test_keywords = [{"keyword": "naxis"}]
+    test_keywords += [{"keyword": "naxis1", "type": "int"}]
+    test_keywords += [{"keyword": "naxis2", "constant": 2}]
+    test_keywords += [{"keyword": "exptime", "constant": 1.0,
                        "type": "float", "operation": "diff"}]
 
     test_im_calib = vodb.ImCalib(ref_image=create_FITS[0],
@@ -63,6 +64,6 @@ def create_list(tmpdir, create_FITS, create_database):
                                  keywords=test_keywords,
                                  image_list=full_path)
 
-    test_im_calib.run()
+    luigi.build([test_im_calib], local_scheduler=True)
 
     return test_im_calib.output().path

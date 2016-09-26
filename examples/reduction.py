@@ -19,7 +19,7 @@ class Reduction(luigi.WrapperTask):
             for image in files:
                 image_list += [os.path.join(path, image)]
 
-        yield db.CreateDB(image_list=image_list, database=self.database)
+        yield db.CreateDB(location=self.obsdata, database=self.database)
 
         for image in image_list:
             if image.endswith(self.suffix):
@@ -45,15 +45,15 @@ class ImageReduction(luigi.Task):
         return luigi.file.LocalTarget(self.out_image)
 
     def run(self):
-        valid_header = [{"keyword": "OBSTYPE", "constant": "Bias"}]
-        valid_header += [{"keyword": "INSTRUME"}]
-        valid_header += [{"keyword": "FILTER", "constant": "C"}]
-        valid_header += [{"keyword": "JD", "type": "int"}]
-        valid_header += [{"keyword": "NAXIS1", "type": "int"}]
-        valid_header += [{"keyword": "NAXIS2", "type": "int"}]
-        valid_header += [{"keyword": "EXPTIME", "constant": 0,
+        valid_header = [{"keyword": "obstype", "constant": "Bias"}]
+        valid_header += [{"keyword": "instrume"}]
+        valid_header += [{"keyword": "filter", "constant": "C"}]
+        valid_header += [{"keyword": "jd", "type": "int"}]
+        valid_header += [{"keyword": "naxis1", "type": "int"}]
+        valid_header += [{"keyword": "naxis2", "type": "int"}]
+        valid_header += [{"keyword": "exptime", "constant": 0,
                           "type": "int"}]
-        valid_header += [{"keyword": "CAMTEMP", "constant": 3,
+        valid_header += [{"keyword": "camtemp", "constant": 3,
                           "type": "float", "operation": "diff"}]
 
         bias_list = os.path.splitext(os.path.basename(self.image))[0] + ".blst"
@@ -68,14 +68,14 @@ class ImageReduction(luigi.Task):
         if not os.path.isfile(master_copy):
             master_bias.copy(master_copy)
 
-        valid_header = [{"keyword": "OBSTYPE", "constant": "Dark"}]
-        valid_header += [{"keyword": "INSTRUME"}]
-        valid_header += [{"keyword": "FILTER", "constant": "C"}]
-        valid_header += [{"keyword": "JD", "type": "int"}]
-        valid_header += [{"keyword": "NAXIS1", "type": "int"}]
-        valid_header += [{"keyword": "NAXIS2", "type": "int"}]
-        valid_header += [{"keyword": "EXPTIME", "operation": "ge"}]
-        valid_header += [{"keyword": "CAMTEMP", "constant": 3,
+        valid_header = [{"keyword": "obstype", "constant": "Dark"}]
+        valid_header += [{"keyword": "instrume"}]
+        valid_header += [{"keyword": "filter", "constant": "C"}]
+        valid_header += [{"keyword": "jd", "type": "int"}]
+        valid_header += [{"keyword": "naxis1", "type": "int"}]
+        valid_header += [{"keyword": "naxis2", "type": "int"}]
+        valid_header += [{"keyword": "exptime", "operation": "ge"}]
+        valid_header += [{"keyword": "camtemp", "constant": 3,
                           "type": "float", "operation": "diff"}]
 
         dark_list = os.path.splitext(os.path.basename(self.image))[0] + ".dlst"
@@ -91,14 +91,14 @@ class ImageReduction(luigi.Task):
         if not os.path.isfile(master_copy):
             master_dark.copy(master_copy)
 
-        valid_header = [{"keyword": "OBSTYPE", "constant": "Flat"}]
-        valid_header += [{"keyword": "INSTRUME"}]
-        valid_header += [{"keyword": "FILTER"}]
-        valid_header += [{"keyword": "NAXIS1", "type": "int"}]
-        valid_header += [{"keyword": "NAXIS2", "type": "int"}]
-        valid_header += [{"keyword": "CAMTEMP", "constant": 3,
+        valid_header = [{"keyword": "obstype", "constant": "Flat"}]
+        valid_header += [{"keyword": "instrume"}]
+        valid_header += [{"keyword": "filter"}]
+        valid_header += [{"keyword": "naxis1", "type": "int"}]
+        valid_header += [{"keyword": "naxis2", "type": "int"}]
+        valid_header += [{"keyword": "camtemp", "constant": 3,
                           "type": "float", "operation": "diff"}]
-        valid_header += [{"keyword": "FOCUSPOS", "constant": 150,
+        valid_header += [{"keyword": "focuspos", "constant": 150,
                           "type": "float", "operation": "diff"}]
 
         flat_list = os.path.splitext(os.path.basename(self.image))[0] + ".flst"
