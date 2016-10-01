@@ -2,7 +2,6 @@ import os.path
 import fnmatch
 
 import luigi
-import numpy as np
 from astropy import table
 from astropy.io import votable
 from ccdproc import ImageFileCollection
@@ -17,7 +16,7 @@ class CreateDB(luigi.Task):
     with recursive parameter set to True (the default)
     """
 
-    location = luigi.parameter.ListParameter()
+    location = luigi.parameter.Parameter()
     recursive = luigi.parameter.BoolParameter(default=True)
     database = luigi.parameter.Parameter()
 
@@ -28,7 +27,7 @@ class CreateDB(luigi.Task):
         # Ideally, this method could be implemented using 
         # ImageFileCollection only. Unfortunately, ImageFileCollection
         # is not recursive and is not able to work with multiple
-        # FITS extensions (multiple extensions is not implemented)
+        # FITS extensions (multiple extensions is not implemented, yet)
 
         imtable = None
         for path, subdirs, files in os.walk(self.location):
@@ -63,27 +62,29 @@ class ImCalib(luigi.Task):
         db = votable.parse_single_table(self.database).to_table()
         for key in self.keywords:
             try:
-                db_column = np.array(db[key["keyword"]])
+                db_column = db[key["keyword"]]
                 column = db_column.astype(key.get("type", db_column.dtype))
 
-                image_pos = np.where(db["file"] == self.ref_image)
-                ref_value = column[image_pos]
+                image_pos = db["file"] == self.ref_image
+                ref_value = column[image_pos][0]
 
-                value = np.array(key.get("constant", ref_value),
-                                 dtype=column.dtype)
+                value = table.Column(key.get("constant", ref_value),
+                                     dtype=column.dtype)
 
                 operation = key.get("operation", "eq")
                 comparison = getattr(column, "__{}__".format(operation))
-                new_images = db["file"][np.where(comparison(value))]
+                new_images = db["file"][comparison(value)]
 
             except AttributeError:
                 if operation == "diff":
-                    value = np.array(key["constant"], dtype=column.dtype)
-
-                    comparison = np.where(abs(column - ref_value) < value)
-                    new_images = db["file"][comparison]
+                    value = table.Column(key["constant"], dtype=column.dtype)
+                    new_images = db["file"][abs(column - ref_value) < value]
                 else:
                     raise
+
+            except IndexError:
+                valid_images = {}
+                break
 
             if valid_images is None:
                 valid_images = set(new_images)
