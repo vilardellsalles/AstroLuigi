@@ -4,18 +4,6 @@ from tempfile import gettempdir
 import luigi
 
 
-class ASCIITarget(luigi.file.LocalTarget):
-    @property
-    def content(self):
-        file_content = []
-        if self.exists():
-            with self.open() as tmpf:
-                for line in tmpf:
-                    file_content += [line.strip()]
-
-        return file_content
-
-
 class TempLocalTarget(luigi.file.LocalTarget):
     def __init__(self, path=None, format=None, add_hash=""):
 
@@ -37,3 +25,15 @@ class TempLocalTarget(luigi.file.LocalTarget):
         # Due to Luigi issue #1519, we cannot use is_tmp=True
 
         super().__init__(path, format)
+
+
+class ASCIITarget(TempLocalTarget):
+    @property
+    def content(self):
+        file_content = []
+        if self.exists():
+            with self.open() as tmpf:
+                for line in tmpf:
+                    file_content += [line.strip()]
+
+        return file_content
