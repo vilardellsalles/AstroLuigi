@@ -17,5 +17,5 @@ setup(
                    "Topic :: Scientific/Engineering :: Astronomy"
                   ],
       packages=find_packages(),
-      install_requires=["ccdproc>=1.0", "luigi>=2.0"]
+      install_requires=["ccdproc>=1.0", "luigi>=2.3"]
      )

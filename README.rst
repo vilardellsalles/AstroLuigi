@@ -1,7 +1,8 @@
 AstroLuigi
 ==========
 
-A tool for the creation of astronomical data reduction pipelines.
+A proof of concept to use Luigi for the creation of astronomical data reduction
+pipelines.
 
 AstroLuigi makes heavy use of `Luigi
 <http://luigi.readthedocs.io/en/stable/index.html>`_, `Astropy
